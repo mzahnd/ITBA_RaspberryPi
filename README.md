@@ -11,8 +11,20 @@ Cada rama contiene su propio README con las indicaciones pertinentes (qué hace 
 - **clearDisplay**: Limpia el display matricial al iniciar la Raspberry Pi.
 - **setWiFi**: Permite establecer las credenciales de la red WiFi.
 
+## Utilizar este repositorio
+Clonar el repositorio completo mediante
+```
+git clone https://github.com/mzahnd/ITBA_RaspberryPi
+```
+
+A continuación, cambiar a la rama con la cual se desea trabajar empleando los siguientes comandos.
+```
+git branch                      # Muestra la actual (con un * a la izquierda)
+git branch -a                   # Muestra todas las ramas en el repositorio
+git checkout autohotspot        # Cambia a la rama 'autohotspot' (reemplazar esto último por la rama deseada).
+```
 ## Licencia
-Todo archivo o rama cuya licencia no esté explícitamente aclarada está sujeto a la misma licencia que figura en este repositorio (MIT).
+Todo archivo dentro, o rama del, repositorio aún cuando su licencia no esté explícitamente aclarada, está sujeto a la misma licencia que figura en este repositorio (MIT).
 
 > MIT License
 > 
