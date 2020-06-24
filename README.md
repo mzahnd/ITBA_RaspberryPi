@@ -20,30 +20,33 @@ El markdown de este PDF se encuentra en la carpeta `markdown`, junto con las im�
 ## Organización del código fuente
 A continuación se explica brevemente cómo está organizado el código fuente.
 
-> .
-> ├── runMe.sh
-> └── scripts
->     ├── cloner
->     │   ├── burnImageinSD.sh
->     │   ├── cloner.sh
->     │   ├── createImage.sh
->     │   └── pishrink
->     │       ├── LICENSE
->     │       ├── pishrink.log
->     │       ├── pishrink.sh
->     │       └── README.md
->     ├── common
->     │   ├── changeHostname.sh
->     │   ├── checkExistence.sh
->     │   ├── colors.sh
->     │   ├── getFilePathName.sh
->     │   ├── getImage.sh
->     │   ├── getMicroSD.sh
->     │   └── runScript.sh
->     └── creator
->         ├── prepareRPi.sh
->         ├── sdCreator.sh
->         └── setWiFi.sh
+Code tree
+```
+ .
+ ├── runMe.sh
+ └── scripts
+     ├── cloner
+     │   ├── burnImageinSD.sh
+     │   ├── cloner.sh
+     │   ├── createImage.sh
+     │   └── pishrink
+     │       ├── LICENSE
+     │       ├── pishrink.log
+     │       ├── pishrink.sh
+     │       └── README.md
+     ├── common
+     │   ├── changeHostname.sh
+     │   ├── checkExistence.sh
+     │   ├── colors.sh
+     │   ├── getFilePathName.sh
+     │   ├── getImage.sh
+     │   ├── getMicroSD.sh
+     │   └── runScript.sh
+     └── creator
+         ├── prepareRPi.sh
+         ├── sdCreator.sh
+         └── setWiFi.sh
+```
 
 ### runMe.sh
 Script principal.
