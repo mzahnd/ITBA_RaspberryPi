@@ -1,0 +1,10 @@
+[Unit]
+Description=Clears the display and turns on the outmost corners
+After=multi-user.target network.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/clearDisp
+Restart=no
+[Install]
+WantedBy=multi-user.target
