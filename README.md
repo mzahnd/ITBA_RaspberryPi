@@ -17,8 +17,8 @@ Copiar los archivos que se encuentran en la carpeta `scruot` dentro de `/usr/bin
 
 Copiar el archivo dentro de la carpeta `service` en `/etc/systemd/system/` y ejecutar
 ```console
-]# systemctl enable autohotspot.service
-]# systemctl start autohotspot.service
+~]# systemctl enable autohotspot.service
+~]# systemctl start autohotspot.service
 ```
 
 ## Tabla con el significado de los LEDs
