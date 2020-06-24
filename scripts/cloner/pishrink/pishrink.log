@@ -1,0 +1,85 @@
+pishrink.sh v0.1.2
+pishrink.sh: Gathering data ...
+Line 195
+beforesize: 7,5G
+parted_output: BYT;
+/home/martin/Documents/Universidad/ITBA/20201Q/2207-Programacion1/RPi/images/Release21/release21.img:7948206080B:file:512:512:msdos::;
+1:4194304B:272629759B:268435456B:fat32::lba;
+2:272629760B:7948206079B:7675576320B:ext4::;
+partnum: 2
+partstart: 272629760
+tune2fs_output: tune2fs 1.45.6 (20-Mar-2020)
+Filesystem volume name:   rootfs
+Last mounted on:          /
+Filesystem UUID:          45e99191-771b-4e12-a526-0779148892cb
+Filesystem magic number:  0xEF53
+Filesystem revision #:    1 (dynamic)
+Filesystem features:      has_journal ext_attr resize_inode dir_index filetype extent flex_bg sparse_super large_file dir_nlink extra_isize
+Filesystem flags:         unsigned_directory_hash 
+Default mount options:    user_xattr acl
+Filesystem state:         clean
+Errors behavior:          Continue
+Filesystem OS type:       Linux
+Inode count:              465856
+Block count:              1873920
+Reserved block count:     59457
+Free blocks:              1389492
+Free inodes:              413713
+First block:              0
+Block size:               4096
+Fragment size:            4096
+Reserved GDT blocks:      93
+Blocks per group:         32768
+Fragments per group:      32768
+Inodes per group:         8032
+Inode blocks per group:   502
+Flex block group size:    16
+Filesystem created:       Thu Feb 13 13:09:32 2020
+Last mount time:          Wed May 13 22:04:16 2020
+Last write time:          Wed May 13 16:31:08 2020
+Mount count:              12
+Maximum mount count:      -1
+Last checked:             Wed Apr 29 08:58:59 2020
+Check interval:           0 (<none>)
+Lifetime writes:          6732 MB
+Reserved blocks uid:      0 (user root)
+Reserved blocks gid:      0 (group root)
+First inode:              11
+Inode size:	          256
+Required extra isize:     32
+Desired extra isize:      32
+Journal inode:            8
+Default directory hash:   half_md4
+Directory Hash Seed:      43a98f7c-2edd-4015-a66e-455e16e0e526
+Journal backup:           inode blocks
+currentsize: 1873920
+blocksize: 4096
+Creating new /etc/rc.local
+pishrink.sh: Checking filesystem ...
+rootfs: 52143/465856 files (0.3% non-contiguous), 484428/1873920 blocks
+resize2fs 1.45.6 (20-Mar-2020)
+Line 292
+currentsize: 1873920
+minsize: 698614
+Line 300
+extra_space: 1175306
+Line 307
+minsize: 703614
+pishrink.sh: Shrinking filesystem ...
+resize2fs 1.45.6 (20-Mar-2020)
+Resizing the filesystem on /dev/loop0 to 703614 (4k) blocks.
+Begin pass 2 (max = 6808)
+Relocating blocks             ----------------------------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+Begin pass 3 (max = 58)
+Scanning inode table          ----------------------------------------XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+The filesystem on /dev/loop0 is now 703614 (4k) blocks long.
+
+Line 326
+partnewsize: 2882002944
+newpartend: 3154632704
+pishrink.sh: Shrinking image ...
+Line 351
+endresult: 3154633216
+Line 388
+aftersize: 3,0G
+pishrink.sh: Shrunk /home/martin/Documents/Universidad/ITBA/20201Q/2207-Programacion1/RPi/images/Release21/release21.img from 7,5G to 3,0G ...

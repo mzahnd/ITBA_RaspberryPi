@@ -1,0 +1,28 @@
+Some ideas or pieces of code where taken from the following links.
+Third party scripts (like PiShrink) are stored in a separete folder with its
+own license and are also linked here.
+
+Sources:
+.- How to check the first character in a string in Bash or UNIX shell?
+https://stackoverflow.com/questions/18488270/how-to-check-the-first-character-in-a-string-in-bash-or-unix-shell
+.- Shell Parameter Expansion
+https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
+.- Raspberry Pi ASCII Art
+https://www.raspberrypi.org/forums/viewtopic.php?t=5494
+.- Colors table: 
+https://misc.flogisoft.com/bash/tip_colors_and_formatting
+.- Sourcing a file multiple times in a bash script
+https://unix.stackexchange.com/questions/297139/sourcing-a-file-multiple-times-in-a-bash-script
+.- Bourne shell: send arguments $2 to $N to variadic function?
+https://stackoverflow.com/questions/12002954/bourne-shell-send-arguments-2-to-n-to-variadic-function
+.- How do I know the script file name in a Bash script?
+https://stackoverflow.com/questions/192319/how-do-i-know-the-script-file-name-in-a-bash-script
+.- A nice and short tutorial to remember the syntax: 
+https://linuxconfig.org/bash-scripting-tutorial-for-beginners
+.- A more advanced tutorial:
+https://tldp.org/LDP/abs/html/
+
+
+Third party scripts:
+.- PiShrink:
+   https://github.com/Drewsif/PiShrink
