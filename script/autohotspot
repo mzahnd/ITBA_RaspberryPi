@@ -1,0 +1,141 @@
+#!/bin/bash
+#
+# Copyright 2020 Martin E. Zahnd <mzahnd@itba.edu.ar>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to 
+# deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+# THE SOFTWARE.
+
+LOG_FILE=log
+LOG_PATH=/var/log/autohotspot
+
+# Time to wait between runs in seconds
+SECS_TO_RUN_AGAIN=60
+
+# Keep the service alive. DO NOT edit manually
+KEEP_UP=/tmp/autohotspot.stat
+
+# Keep hotspot always active
+HOTSPOT_PERSISTENT=/tmp/autohotspot.hotspot
+
+# Create an empty log file. Making a backup of the previous ones
+create_log()
+{
+    # Keep the last 10 logs plus the new one. Eleven logs in total (max)
+    # Copy old logs
+    local i=9;
+    
+    until [ $i -lt 1 ]
+    do
+        local j=$i
+        j=$((++j))
+        mv -f \
+            "${LOG_PATH}/${LOG_FILE}-${i}" \
+            "${LOG_PATH}/${LOG_FILE}-${j}" 2>/dev/null
+
+        ((i--))
+    done
+
+    mv \
+        "${LOG_PATH}/${LOG_FILE}" \
+        "${LOG_PATH}/${LOG_FILE}-1" 2>/dev/null
+
+    # Create new log
+    touch ${LOG_PATH}/${LOG_FILE}
+}
+
+# Status of Keep Up
+keep_up_status="0"
+hotspot_lock_status="0"
+
+# Log WiFi status if connected (0 or 1)
+log_wifi_connected=1
+
+# Main case
+case "$1" in
+    start)
+
+        # Create log file
+        create_log
+
+        # Keep script alive
+        echo "1" > ${KEEP_UP}
+        read -rn1 keep_up_status < ${KEEP_UP}
+        
+        while [ "${keep_up_status}" = "1"  ]
+        do
+            # Only run the script when hotspot is not locked
+            if [ "${hotspot_lock_status}" = "0" ]; then
+                # Execute script to switch between WiFi and Hotspot
+                /bin/bash autohotspot_switch \
+                    "${LOG_PATH}/${LOG_FILE}" \
+                    "${log_wifi_connected}" \
+                    "${HOTSPOT_PERSISTENT}"
+            fi
+
+            sleep ${SECS_TO_RUN_AGAIN}
+
+            # Stop logging WiFi if it's properly connected
+            log_wifi_connected=0
+
+            # Update status
+            # Keep script alive
+            read -rn1 keep_up_status < ${KEEP_UP}
+            # Block in hotspot mode
+            read -rn1 hotspot_lock_status < ${HOTSPOT_PERSISTENT}
+        done
+
+        rm ${KEEP_UP}
+        ;;
+
+    stop)
+        echo "0" > ${KEEP_UP}
+        keep_up_status="0"
+	echo "0" > ${HOTSPOT_PERSISTENT}
+        ;;
+
+    status)
+        # If the script is run when the service is not running, create a blank
+        # file to avoid printing an error
+        touch ${KEEP_UP}
+
+        read -rn1 keep_up_status < ${KEEP_UP}
+
+        if [ "${keep_up_status}" = "1" ]; then
+            # Running
+            echo "Service is running."
+        elif [ "${keep_up_status}" = "0" ]; then
+            # Stopped (or stop signal send)
+            echo "Service is stopped."
+        else
+            # Remove blank file
+            echo "Service is stopped."
+            rm ${KEEP_UP}
+        fi
+        ;;
+
+    lock)
+        touch ${HOTSPOT_PERSISTENT}
+	echo "1" > ${HOTSPOT_PERSISTENT}
+        ;;
+    *)
+        echo "Usage $0 {start|stop|status|lock}"
+        exit 1
+        ;;
+esac
+
+exit 0

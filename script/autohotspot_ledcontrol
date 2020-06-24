@@ -1,0 +1,200 @@
+#!/bin/bash
+#
+# Copyright 2020 Martin E. Zahnd <mzahnd@itba.edu.ar>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to 
+# deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+# THE SOFTWARE.
+
+# Path to GPIO export
+GPIO_EXPORT_PATH=/sys/class/gpio/export
+# Path to GPIO pin folder (must be appended with the pin number)
+GPIO_LED_PATH=/sys/class/gpio/gpio
+
+# Set each LED GPIO port
+# Modify the values of WAIT, HTSP and WIFI with the deried pins of the RPi
+declare -A LEDS2_GPIO=( ["WAIT"]=23 ["HTSP"]=23 ["WIFI"]=24 )
+declare -A LEDS3_GPIO=( ["WAIT"]=5 ["HTSP"]=13 ["WIFI"]=26 )
+declare -A LEDS_GPIO=( ["WAIT"]=0 ["HTSP"]=0 ["WIFI"]=0 )
+
+# Current time and time box format (for logs)
+TIMENOW=$(date +'%Y-%m-%d %R')
+DATEBOX="[${TIMENOW}]"
+
+AMMOUNT=${1}
+NAME=${2}
+SIGNAL=${3}
+EXIT_STATUS=0
+
+if [ ${NAME} = "INIT" ]; then
+    # Don't check anything :)
+    :
+elif [ ${SIGNAL} != "ON" ] && [ ${SIGNAL} != "OFF" ]; then
+    echo "Bad SIGNAL. Use ON or OFF Exiting."
+    exit 1
+fi
+
+if [ ${AMMOUNT} -eq 2 ]; then
+    #
+    LEDS_GPIO[WAIT]=${LEDS2_GPIO[WAIT]}
+    LEDS_GPIO[HTSP]=${LEDS2_GPIO[HTSP]}
+    LEDS_GPIO[WIFI]=${LEDS2_GPIO[WIFI]}
+elif [ ${AMMOUNT} -eq 3 ]; then
+    # 
+    LEDS_GPIO[WAIT]=${LEDS3_GPIO[WAIT]}
+    LEDS_GPIO[HTSP]=${LEDS3_GPIO[HTSP]}
+    LEDS_GPIO[WIFI]=${LEDS3_GPIO[WIFI]}
+else
+    echo "Bad LED ammount. Exiting."
+    exit 1
+fi
+
+# Path for each pin
+declare -A LEDS_GPIO_PATH=( \
+    ["WAIT"]=${GPIO_LED_PATH}${LEDS_GPIO[WAIT]} \
+    ["HTSP"]=${GPIO_LED_PATH}${LEDS_GPIO[HTSP]} \
+    ["WIFI"]=${GPIO_LED_PATH}${LEDS_GPIO[WIFI]} )
+
+main_func() 
+{
+    case "${NAME}" in
+        INIT)
+            # Initialize LEDs
+            # It skips itself if all LEDs are already initialized
+            LED_Setup
+
+            # If both (HTSP and WIFI) are OFF, set them on accordingly
+            if [ $( LED_Status HTSP ) -eq 0 ] && \
+                [ $( LED_Status WIFI ) -eq 0 ]; then 
+                SIGNAL="ON"
+                SET_WAIT
+            fi
+            ;;
+        WAIT)
+            # Set WAIT LED(s) on
+            SET_WAIT
+            ;;
+        HTSP)
+            # On / Off switch HTSP LED
+            if [ ${SIGNAL} = "ON" ]; then
+                LED_on HTSP
+            elif [ ${SIGNAL} = "OFF" ]; then
+                LED_off HTSP
+            fi
+            ;;
+
+        WIFI)
+            # On / Off switch WIFI LED
+            if [ ${SIGNAL} = "ON" ]; then
+                LED_on WIFI
+            elif [ ${SIGNAL} = "OFF" ]; then
+                LED_off WIFI
+            fi
+            ;;
+        *)
+            echo "Bad NAME. Use INIT , WAIT , HTSP or WIFI Exiting."
+            EXIT_STATUS=1
+            ;;
+
+    esac
+
+    exit ${EXIT_STATUS}
+}
+
+# Initialize LEDs
+LED_Setup()
+{
+    for led in "${!LEDS_GPIO[@]}"
+    do
+        # Check if it was initialized already
+        ls -A ${LEDS_GPIO_PATH[${led}]} > /dev/null 2>&1
+            
+        # If so, ommit this LED
+        if [ $? -ne 0 ]; then
+            echo -n "Initializing LED ${led} "
+
+            # Export pins
+            echo "${LEDS_GPIO[${led}]}" > ${GPIO_EXPORT_PATH}
+
+            # Set pin as out
+            echo "out" > ${LEDS_GPIO_PATH[${led}]}/direction
+
+            # Set pin as active low
+            echo "0" > ${LEDS_GPIO_PATH[${led}]}/active_low
+
+            # Set LED as off
+            echo "0" > ${LEDS_GPIO_PATH[${led}]}/value
+
+            echo "[ OK ]"
+        fi
+    done
+}
+
+# Turn on a LED. One argument with an index from LEDS_GPIO must be passed
+LED_on()
+{
+    echo "LED ${1} [ ON ]"
+    echo "1" > ${LEDS_GPIO_PATH[${1}]}/value
+}
+
+
+# Turn off a LED. One argument with an index from LEDS_GPIO must be passed
+LED_off()
+{
+    echo "LED ${1} [ OFF ]"
+    echo "0" > ${LEDS_GPIO_PATH[${1}]}/value
+}
+
+LED_Status()
+{
+    local char
+    read -rn1 char < ${LEDS_GPIO_PATH[${1}]}/value
+    echo ${char}
+}
+
+# Set WAIT LED(s) depending if there are 2 or 3 LEDs connected
+SET_WAIT()
+{
+    case ${AMMOUNT} in
+        2)
+            # Two LEDs
+            if [ ${SIGNAL} = "ON" ]; then
+                LED_on HTSP
+                LED_on WIFI
+            elif [ ${SIGNAL} = "OFF" ]; then
+                LED_off HTSP
+                LED_off WIFI 
+            fi
+            ;;
+        3)
+            # Three LEDs
+            if [ ${SIGNAL} = "ON" ]; then
+                LED_on WAIT 
+            elif [ ${SIGNAL} = "OFF" ]; then
+                LED_off WAIT 
+            fi
+            ;;
+        *)
+            # Something else
+            echo "Bad LED ammount. Exiting."
+            EXIT_STATUS=1
+            ;;
+    esac
+}
+
+# Enter main_func
+main_func
