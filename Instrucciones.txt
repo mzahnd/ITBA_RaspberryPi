@@ -1,0 +1,5 @@
+Ejecutar únicamente el script "runMe.sh". Este hará todo el trabajo e indicará los pasos a seguir.
+La función de crear una imagen está incompleta, pero puede clonar y grabar imágenes preexistentes sin problemas.
+
+]$ chmod +x runMe.sh
+]$ ./runMe.sh
