@@ -45,7 +45,7 @@ _WIFI_HIDDEN=0
 # Empty password entered
 _EMPTY_PWD=1
 
-AUTOHOTSPOT_PATH="/usr/bin/autohotspot"
+AUTOHOTSPOT_PATH="/usr/local/bin/autohotspot"
 
 # Modifies wpa_supplicant file with user credentials
 #
@@ -192,10 +192,10 @@ function _writeFile
     local retVal=-1
 
     # Hash the password for (a little bit) more security.
-    # NOT WORKING on this version of the Raspberry Pi. Disabled.
+    # NOT WORKING on this version of Raspberry Pi. Disabled
     #if [ "${_EMPTY_PWD}" -eq 0 ]; then
-    #_WIFI_PWD=$(wpa_passphrase ${_WIFI_SSID} ${_WIFI_PWD} | \
-    #    grep -E "[^#]psk=.*" | awk -F '=' '{print $2}' 2> /dev/null)
+    #	_WIFI_PWD=$(wpa_passphrase ${_WIFI_SSID} ${_WIFI_PWD} | \
+    #   grep -E "[^#]psk=.*" | awk -F '=' '{print $2}' 2> /dev/null)
     #fi
 
     # Write file
