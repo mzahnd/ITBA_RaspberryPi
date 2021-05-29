@@ -45,7 +45,7 @@ _WIFI_HIDDEN=0
 # Empty password entered
 _EMPTY_PWD=1
 
-AUTOHOTSPOT_PATH="/usr/local/bin/autohotspot"
+AUTOHOTSPOT_PATH="autohotspot"
 
 # Modifies wpa_supplicant file with user credentials
 #
@@ -205,41 +205,32 @@ function _writeFile
     else
         # Write file line by line. Using tee to ensure root perms
         # First lines are always equal
-        echo -n "ctrl_interface=DIR="           | \
-                                   sudo tee ${FILE_WPASUPPLICANT} &> /dev/null
-        echo -n "/var/run/wpa_supplicant "      | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
-        echo "GROUP=netdev"                     | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
-        echo "update_config=1"                  | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
-        echo "country=AR"                       | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
-        echo ""                                 | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
-        echo "network={"                        | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
-        echo "	ssid=\"${_WIFI_SSID}\""         | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        sudo bash -c "cat << EOF > ${FILE_WPASUPPLICANT}
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=AR
 
+network={
+	ssid=\"${_WIFI_SSID}\"
+EOF"
         # Hidden SSID
         if [ ${_WIFI_HIDDEN} -eq 1 ]; then
-            echo "	scan_ssid=1"            | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+            echo "	scan_ssid=1" | sudo tee -a ${FILE_WPASUPPLICANT} \
+                                                                 &> /dev/null
         fi
 
         if [ ${_EMPTY_PWD} -eq 1 ]; then
             # No password
-            echo "	key_mgmt=NONE"          | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+            echo "	key_mgmt=NONE" | sudo tee -a ${FILE_WPASUPPLICANT} \
+                                                                &> /dev/null
         else
             # Hashed password
-            echo "	psk=\"${_WIFI_PWD}\""   | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+            echo "	psk=\"${_WIFI_PWD}\"" | sudo tee -a \
+                                                        ${FILE_WPASUPPLICANT} \
+                                                        &> /dev/null
         fi
 
-        echo "}"                                | \
-                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        echo "}" | sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
         retVal=0
     fi
 
