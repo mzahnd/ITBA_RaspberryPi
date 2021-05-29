@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ITBA Raspberry Pi
 
 En este repositorio se encuentran distintos scripts y pequeños programas utilizados para crear las imagenes que utilizan las Raspberry Pi de la cátedra Programación 1 del Instituto Tecnológico de Buenos Aires.
