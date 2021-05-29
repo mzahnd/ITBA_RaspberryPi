@@ -1,0 +1,252 @@
+#!/bin/bash
+#
+# Copyright 2020 Martin E. Zahnd <mzahnd@itba.edu.ar>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to 
+# deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+# THE SOFTWARE.
+
+# Colors
+bold="\e[1m"
+lcyan="\e[96m"
+lgreen="\e[92m"
+lyellow="\e[93m"
+blue="\e[34m"
+green="\e[32m"
+red="\e[31m"
+white="\e[15m"
+rmColor="\e[0m"
+rmBold="\e[22m"
+
+# wpa_supplicant file path
+FILE_WPASUPPLICANT="/etc/wpa_supplicant/wpa_supplicant.conf"
+
+# Network SSID
+_WIFI_SSID=""
+# Network Password
+_WIFI_PWD=""
+# Network hidden: 1 = True ; 0 = False
+_WIFI_HIDDEN=0
+
+# Empty password entered
+_EMPTY_PWD=1
+
+AUTOHOTSPOT_PATH="/usr/bin/autohotspot"
+
+# Modifies wpa_supplicant file with user credentials
+#
+# Arguments
+# None
+# Return
+# -1 No return value assigned by function (Error)
+# 0 Success
+# 1 Error
+function modifyWPA
+{
+    local retVal=-1
+
+    if [ -z "${FILE_WPASUPPLICANT}" ]; then
+        echo -e "${red}Empty file path to wpa_supplicant.conf${rmColor}"
+        retVal=1
+    else
+        while [ ${retVal} -ne 0 ]; do
+            _getCreds
+            retVal=$?
+        done
+
+        echo "Storing credentials..."
+        _writeFile
+        retVal=$?
+
+        if [ ${retVal} -eq 0 ]; then
+            echo "Credentials stored."
+            # Lock hotspot status
+            # When the system is running as hostpost, keeps like that
+            # On the other hand, whenever is connected to a WiFi network, stays
+            # connected.
+            sudo /bin/bash ${AUTOHOTSPOT_PATH} lock
+        else
+            echo "Something failed."
+        fi
+    fi
+
+    return ${retVal}
+}
+
+# Get wireless credentials.
+# Including hidden status, SSID and password.
+# 
+# Arguments
+# None
+# Return
+# 0 Success
+# 1 Error
+function _getCreds
+{
+    local validCreds=0
+
+    # Clear credential variables
+    _WIFI_SSID=""
+    _WIFI_PWD=""
+    _EMPTY_PWD=1
+    _WIFI_HIDDEN=-1
+
+    # Is the network hidden?
+    # Keep looping until a valid answer is given
+    while [  ${_WIFI_HIDDEN} -eq -1 ]; do
+
+        echo -en "${lcyan}Is your WiFi network hidden? [y/n] ${rmColor}"
+        read
+
+        if [ "${REPLY,,}" = "y" ] || [ "${REPLY,,}" = "yes" ]; then
+            _WIFI_HIDDEN=1
+        elif [ "${REPLY,,}" = "n" ] || [ "${REPLY,,}" = "no" ]; then
+            _WIFI_HIDDEN=0
+        fi
+    done
+
+    # Get SSID
+    # SSID can't be empty
+    while [ -z "${_WIFI_SSID}" ]; do
+        echo -en "${lcyan}Insert the network SSID (network's name): ${rmColor}"
+        read _WIFI_SSID
+    done
+
+    # Get password
+    # Validate password length
+    local validPwd=1
+    while [ ${validPwd} -ne 0 ]; do
+        echo -en "${lcyan}Insert password for ${_WIFI_SSID}: ${rmColor}"
+        read _WIFI_PWD
+
+        # Password can be empty
+        if [ -z "${_WIFI_PWD}" ]; then
+            validPwd=0
+        elif [ ${#_WIFI_PWD} -lt 8 ] || [ ${#_WIFI_PWD} -ge 64 ]; then
+        # Or be between 8-63 characters long
+            echo -e "${red}Password must be 8 to 63 characters long.${rmColor}"
+            _WIFI_PWD=""
+            validPwd=1
+        else
+            validPwd=0
+        fi
+    done
+    
+    # Tell the user when an empty password was given
+    if [ -z "${_WIFI_PWD}" ]; then
+        echo -e "${lyellow}No password entered.${rmColor}"
+        _EMPTY_PWD=1
+    else
+        _EMPTY_PWD=0
+    fi
+
+    # Print readed credentials and ask for confirmation
+    validCreds=0
+    echo -e "${bold}SSID:${rmBold} ${_WIFI_SSID}"
+    echo -en "${bold}Password:${rmBold} "
+    if [ -z "${_WIFI_PWD}" ]; then
+        echo -e "${lyellow}No password provided for this network.${rmColor}"
+    else
+        echo "${_WIFI_PWD}"
+    fi
+    # Loop until confirmation is given.
+    while [ ${validCreds} -eq 0 ]; do
+        read -p 'Are these credentials correct? [y/n] ' ASK_CREDSOK
+
+        if [ "${ASK_CREDSOK,,}" = "y" ] || [ "${ASK_CREDSOK,,}" = "yes" ]
+        then
+            validCreds=1
+        elif [ "${ASK_CREDSOK,,}" = "n" ] || [ "${ASK_CREDSOK,,}" = "no" ]
+        then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+# Write user input to wpa_supplicant.conf file.
+#
+# Arguments
+# None
+# Return
+# -1 No return value assigned by function (Error)
+# 0 Success
+# 1 Error
+function _writeFile
+{
+    local retVal=-1
+
+    # Hash the password for (a little bit) more security.
+    # NOT WORKING on this version of the Raspberry Pi. Disabled.
+    #if [ "${_EMPTY_PWD}" -eq 0 ]; then
+    #_WIFI_PWD=$(wpa_passphrase ${_WIFI_SSID} ${_WIFI_PWD} | \
+    #    grep -E "[^#]psk=.*" | awk -F '=' '{print $2}' 2> /dev/null)
+    #fi
+
+    # Write file
+    if [ -z "${_WIFI_SSID}" ]; then
+        echo -e "${red}No SSID in _WIFI_SSID${rmColor}"
+        retVal=1
+    else
+        # Write file line by line. Using tee to ensure root perms
+        # First lines are always equal
+        echo -n "ctrl_interface=DIR="           | \
+                                   sudo tee ${FILE_WPASUPPLICANT} &> /dev/null
+        echo -n "/var/run/wpa_supplicant "      | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        echo "GROUP=netdev"                     | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        echo "update_config=1"                  | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        echo "country=AR"                       | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        echo ""                                 | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        echo "network={"                        | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        echo "	ssid=\"${_WIFI_SSID}\""         | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+
+        # Hidden SSID
+        if [ ${_WIFI_HIDDEN} -eq 1 ]; then
+            echo "	scan_ssid=1"            | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        fi
+
+        if [ ${_EMPTY_PWD} -eq 1 ]; then
+            # No password
+            echo "	key_mgmt=NONE"          | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        else
+            # Hashed password
+            echo "	psk=\"${_WIFI_PWD}\""   | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        fi
+
+        echo "}"                                | \
+                                 sudo tee -a ${FILE_WPASUPPLICANT} &> /dev/null
+        retVal=0
+    fi
+
+    return ${retVal}
+}
+
+# === MAIN ===
+
+modifyWPA
+exit $?

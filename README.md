@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ITBA Raspberry Pi
 
 En este repositorio se encuentran distintos scripts y pequeños programas utilizados para crear las imagenes que utilizan las Raspberry Pi de la cátedra Programación 1 del Instituto Tecnológico de Buenos Aires.
@@ -122,8 +121,19 @@ Si se quiere probar la correcta instalación del mismo, luego de haberlo habilit
 ```
 ~]# systemctl start clearDisp.service
 ```
+---
 
-# Licencias
+# setWiFi
+
+Modifica el archivo `wpa_supplicant.conf` para establecer un SSID y una contraseña y poder conectarse a una red Wi-Fi.
+
+## Instrucciones
+Copiar el script en `/usr/local/bin/` y agregar un alias para ejecutar el mismo dentro de `~/.bashrc`
+```
+alias setwifi='/bin/bash /usr/local/bin/setWiFi.sh'
+```
+
+## Licencias
 El código original del autohotspot se encuentra bajo la siguiente licencia.
 > You may share this script on the condition a reference to RaspberryConnect.com must be included in copies or derivatives of this script. 
 
