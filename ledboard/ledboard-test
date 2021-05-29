@@ -1,0 +1,90 @@
+#!/bin/bash
+
+GPIO_PATH="/sys/class/gpio"
+EXPORT_PATH="${GPIO_PATH}/export"
+UNEXPORT_PATH="${GPIO_PATH}/unexport"
+PIN_PATH="${GPIO_PATH}/gpio"
+
+ACTIVE_LOW="active_low"
+DIRECTION="direction"
+VALUE="value"
+
+declare -A LEDS
+
+LEDS=(["LED0"]=17 ["LED1"]=4
+["LED2"]=18 ["LED3"]=23
+["LED4"]=24 ["LED5"]=25
+["LED6"]=22 ["LED7"]=27)
+
+#if [ ${UID} -ne 0 ]; then
+#    echo "Please run as root."
+#    exit 1
+#fi
+
+function blink_led()
+{
+    local pin="${1}"
+    if [ "${pin}" = "" ]; then
+        echo "ERROR. EMPTY PIN TO BLINK."
+        return 1
+    fi
+
+    echo "Blinking led ${pin}"
+    echo "1" > "${PIN_PATH}${pin}/${VALUE}"
+    sleep 0.5
+    echo "0" > "${PIN_PATH}${pin}/${VALUE}"
+}
+
+for pin in ${LEDS[@]}; do
+    # Export LEDs
+    ls -A "${GPIO_PATH}" | grep "gpio${pin}" &> /dev/null
+    if [ $? -ne 0 ]; then
+        echo "${pin}" > "${EXPORT_PATH}"
+    fi
+
+    sleep 0.1
+
+    # Set as active low
+    echo "0" > "${PIN_PATH}${pin}/${ACTIVE_LOW}"
+    # Set as output
+    echo "out" > "${PIN_PATH}${pin}/${DIRECTION}"
+
+    sleep 1
+
+    # Blink
+    blink_led "${pin}"
+done
+
+echo "Bar sweep ON"
+for pin in ${LEDS[@]}; do
+    echo "1" > "${PIN_PATH}${pin}/${VALUE}"
+    sleep 0.3
+done
+
+sleep 1
+
+echo "Bar sweep OFF"
+for pin in ${LEDS[@]}; do
+    echo "0" > "${PIN_PATH}${pin}/${VALUE}"
+    sleep 0.3
+done
+
+# All blink
+echo "All blink"
+for pin in ${LEDS[@]}; do
+    echo "1" > "${PIN_PATH}${pin}/${VALUE}"
+done
+
+sleep 0.5
+
+for pin in ${LEDS[@]}; do
+    echo "0" > "${PIN_PATH}${pin}/${VALUE}"
+done
+
+for pin in ${LEDS[@]}; do
+    # Unexport LEDs
+    ls -A "${GPIO_PATH}" | grep "gpio${pin}" &> /dev/null
+    if [ $? -eq 0 ]; then
+        echo "${pin}" > "${UNEXPORT_PATH}"
+    fi
+done

@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+# Copyright 2020 Martin E. Zahnd <mzahnd@itba.edu.ar>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to 
+# deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+# THE SOFTWARE.
+
+# Enable / Disable autohotspot status LEDS.
+
+AUTOHTSP_PATH='/usr/local/bin/autohotspot_switch'
+
+# LED Pins
+LEDS=("23" "24")
+# Replaced in autohotspot_switch
+enableLeds="LEDS_ENABLE=1"
+disableLeds="LEDS_ENABLE=0"
+
+function changeStatus()
+{
+    local newStatus="${1}"
+    sudo sed -r --in-place \
+            "s/^LEDS_ENABLE=[0-9]$/${newStatus}/g" "${AUTOHTSP_PATH}"
+}
+
+function unexportLeds()
+{
+	for led in ${LEDS[@]}; do
+	    echo "0" | sudo tee -a /sys/class/gpio/gpio${led}/value >/dev/null
+	    echo "${led}" | sudo tee -a /sys/class/gpio/unexport >/dev/null
+            # This sleep is here on purpose.
+            # For some programagically reason, the gpio (un)export does not
+            # work as expected if some ms are not given between (un)exports
+            # At least, when running from bash scripts, like this one
+	    sleep 0.5
+	done
+}
+
+function menu()
+{
+    local validInput=0
+
+    while [ ${validInput} -eq 0 ]; do
+        echo "Would you like to:"
+        echo "  1. Turn ON the auxiliary display status leds."
+        echo "  2. Turn OFF the auxiliary display status leds."
+        echo ""
+        echo "0. Exit"
+
+        read ASKUSER
+
+        case ${ASKUSER} in
+            0)
+                validInput=1
+                ;;
+            1)
+                validInput=1
+                echo "Turning ON..."
+                changeStatus ${enableLeds}
+                echo "Almost there..."
+                sudo systemctl restart autohotspot.service
+                echo "Done"
+                ;;
+            2)
+                validInput=1
+                echo "Turning OFF..."
+                changeStatus ${disableLeds}
+                echo "Almost there..."
+                sudo systemctl restart autohotspot.service 
+		unexportLeds
+                echo "Done"
+                ;;
+            *)
+                validInput=0
+                echo "Invalid input. Please try again."
+                ;;
+        esac
+    done
+
+    return 0
+}
+
+menu
+exit $?
