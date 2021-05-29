@@ -4,9 +4,9 @@ After=multi-user.target network.target
 [Service]
 Type=simple
 RemainAfterExit=yes
-ExecStart=/usr/bin/autohotspot start
-ExecStop=/usr/bin/autohotspot stop
-ExecReload=/usr/bin/autohotspot stop && sleep 60 && /usr/bin/autohotspot start
+ExecStart=/usr/local/bin/autohotspot start
+ExecStop=/usr/local/bin/autohotspot stop
+ExecReload=/usr/local/bin/autohotspot stop && sleep 60 && /usr/bin/autohotspot start
 RestartSec=60
 Restart=always
 [Install]

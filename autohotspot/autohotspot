@@ -1,24 +1,7 @@
 #!/bin/bash
-#
-# Copyright 2020 Martin E. Zahnd <mzahnd@itba.edu.ar>
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to 
-# deal in the Software without restriction, including without limitation the 
-# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
-# sell copies of the Software, and to permit persons to whom the Software is 
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in 
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
-# THE SOFTWARE.
+
+# Created by Martin E. Zahnd <mzahnd@itba.edu.ar> for academic use only
+SCRIPT_DIR="$(dirname ${BASH_SOURCE[0]})"
 
 LOG_FILE=log
 LOG_PATH=/var/log/autohotspot
@@ -31,6 +14,8 @@ KEEP_UP=/tmp/autohotspot.stat
 
 # Keep hotspot always active
 HOTSPOT_PERSISTENT=/tmp/autohotspot.hotspot
+
+pushd "${SCRIPT_DIR}" &> /dev/null
 
 # Create an empty log file. Making a backup of the previous ones
 create_log()
@@ -65,6 +50,7 @@ hotspot_lock_status="0"
 # Log WiFi status if connected (0 or 1)
 log_wifi_connected=1
 
+
 # Main case
 case "$1" in
     start)
@@ -73,6 +59,8 @@ case "$1" in
         create_log
 
         # Keep script alive
+        touch ${KEEP_UP}
+	touch ${HOTSPOT_PERSISTENT}
         echo "1" > ${KEEP_UP}
         read -rn1 keep_up_status < ${KEEP_UP}
         
@@ -81,7 +69,7 @@ case "$1" in
             # Only run the script when hotspot is not locked
             if [ "${hotspot_lock_status}" = "0" ]; then
                 # Execute script to switch between WiFi and Hotspot
-                /bin/bash autohotspot_switch \
+                /bin/bash autohotspot.d/autohotspot_switch \
                     "${LOG_PATH}/${LOG_FILE}" \
                     "${log_wifi_connected}" \
                     "${HOTSPOT_PERSISTENT}"
@@ -103,6 +91,7 @@ case "$1" in
         ;;
 
     stop)
+        touch ${KEEP_UP}
         echo "0" > ${KEEP_UP}
         keep_up_status="0"
 	echo "0" > ${HOTSPOT_PERSISTENT}
@@ -133,9 +122,12 @@ case "$1" in
 	echo "1" > ${HOTSPOT_PERSISTENT}
         ;;
     *)
-        echo "Usage $0 {start|stop|status|lock}"
+        echo "Usage: $0 {start|stop|status|lock}"
+	popd &> /dev/null
         exit 1
         ;;
 esac
+
+popd &> /dev/null
 
 exit 0
