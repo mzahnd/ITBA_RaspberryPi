@@ -1,0 +1,341 @@
+#!/bin/bash
+# version 0.95-41-N/HS
+# LED Version 0.0.2
+
+# You may share this script on the condition a reference to 
+# RaspberryConnect.com must be included in copies or derivatives of this 
+# script. 
+
+# A script to switch between a wifi network and a non internet routed Hotspot
+# Works at startup or with a seperate timer or manually without a reboot
+# Other setup required find out more at
+# http://www.raspberryconnect.com
+
+# GPIO LED functionality added by
+# Martin E. Zahnd <mzahnd@itba.edu.ar>
+# Modifications are under MIT licence.
+
+wifidev="wlan0" #device name to use. Default is wlan0.
+#use the command: iw dev ,to see wifi interface name 
+
+IFSdef=$IFS
+cnt=0
+#These four lines capture the wifi networks the RPi is setup to use
+wpassid=$(awk '/ssid="/{ print $0 }' /etc/wpa_supplicant/wpa_supplicant.conf | \
+        awk -F'ssid=' '{ print $2 }' ORS=',' | sed 's/\"/''/g' | sed 's/,$//')
+IFS=","
+ssids=($wpassid)
+IFS=$IFSdef #reset back to defaults
+
+
+#Note:If you only want to check for certain SSIDs
+#Remove the # in in front of ssids=('mySSID1'.... below and put a # infront of 
+# all four lines above separated by a space, eg ('mySSID1' 'mySSID2')
+#
+#ssids=('mySSID1' 'mySSID2' 'mySSID3')
+
+#Enter the Routers Mac Addresses for hidden SSIDs, seperated by spaces ie 
+#( '11:22:33:44:55:66' 'aa:bb:cc:dd:ee:ff' ) 
+mac=()
+
+ssidsmac=("${ssids[@]}" "${mac[@]}") #combines ssid and MAC for checking
+
+# Set to 1 to enable the use of GPIO LEDs. 0 to disable.
+LEDS_ENABLE=1
+LEDS_AMMOUNT=2
+
+# Current time and time box format (for logs)
+TIMENOW=$(date +'%Y-%m-%d %R')
+DATEBOX="[${TIMENOW}]"
+
+# Log file
+SENDTOLOG="${1}"
+
+# Log WiFi status as connected
+LOG_WIFI_CONNECTED="${2}"
+
+# Lock file
+lock_path=/tmp/autohotspot.lock
+
+# Path to script for led controlling
+SCRIPT_led_control="/bin/bash /usr/bin/autohotspot_ledcontrol"
+# Path to hotspot persistent file
+HOTSPOT_PERSISTENT="${3}"
+
+createAdHocNetwork()
+{
+    echo -n "${DATEBOX} " >> ${SENDTOLOG}
+    echo "Creating Hotspot" >> ${SENDTOLOG}
+    ip link set dev "$wifidev" down
+    ip a add 10.0.0.5/24 brd + dev "$wifidev"
+    ip link set dev "$wifidev" up
+    dhcpcd -k "$wifidev" >/dev/null 2>&1
+    systemctl start dnsmasq
+    systemctl start hostapd
+
+    echo -n "${DATEBOX} " >> ${SENDTOLOG}
+    echo "Hotspot [ ON ]" >> ${SENDTOLOG}
+    # Turn on LED
+    LED_off WIFI
+    LED_on HTSP
+}
+
+KillHotspot()
+{
+    echo -n "${DATEBOX} " >> ${SENDTOLOG}
+    echo "Shutting Down Hotspot" >> ${SENDTOLOG}
+    ip link set dev "$wifidev" down
+    systemctl stop hostapd
+    systemctl stop dnsmasq
+    ip addr flush dev "$wifidev"
+    ip link set dev "$wifidev" up
+    dhcpcd  -n "$wifidev" >/dev/null 2>&1
+
+    echo -n "${DATEBOX} " >> ${SENDTOLOG}
+    echo "Hotspot [ OFF ]" >> ${SENDTOLOG}
+    # Turn off LED
+    LED_off HTSP
+}
+
+ChkWifiUp()
+{
+    	echo -n "${DATEBOX} " >> ${SENDTOLOG}
+	echo -n "Checking WiFi connection " >> ${SENDTOLOG}
+        sleep 20 #give time for connection to be completed to router
+
+	if ! wpa_cli -i "$wifidev" status | grep 'ip_address' >/dev/null 2>&1
+        then #Failed to connect to wifi (check your wifi settings, password etc)
+            echo "[ FAIL ]" >> ${SENDTOLOG}
+            LED_on WAIT
+
+            # Set Hotspot as persistent
+	    PersistentHotspot_Set
+
+            wpa_cli terminate "$wifidev" >/dev/null 2>&1
+	    createAdHocNetwork
+        else
+            echo "[ OK ]" >> ${SENDTOLOG}
+            LED_off WAIT
+            LED_off HTSP
+            LED_on WIFI
+        fi
+}
+
+
+FindSSID()
+{
+    #Check to see what SSID's and MAC addresses are in range
+    ssidChk=('NoSSID')
+    i=0; j=0
+    until [ $i -eq 1 ] #wait for wifi if busy, usb wifi is slower.
+    do
+        ssidreply=$((iw dev "${wifidev}" scan ap-force | egrep "^BSS|SSID:") 2>&1) >/dev/null 2>&1 
+        #echo -n "${DATEBOX} " >> ${SENDTOLOG}
+        #echo "SSID's in range: " $ssidreply >> ${SENDTOLOG}
+        echo -n "${DATEBOX} " >> ${SENDTOLOG}
+        echo -n "Wireless device " >> ${SENDTOLOG}
+        
+        if (($j >= 10)); then #if busy 10 times goto hotspot
+            echo -n "${DATEBOX} " >> ${SENDTOLOG}
+            echo "[ Busy or unavailable ]" >> ${SENDTOLOG}
+            ssidreply=""
+            i=1
+    	elif echo "$ssidreply" | grep "No such device (-19)" >/dev/null 2>&1; then
+            echo "[ No device Reported ]" >> ${SENDTOLOG}
+    	    NoDevice
+        elif echo "$ssidreply" | grep "Network is down (-100)" >/dev/null 2>&1 ; then
+            echo "[ Network not available ]" >> ${SENDTOLOG}
+            j=$((j + 1))
+            sleep 2
+    	elif echo "$ssidreply" | grep "Read-only file system (-30)" >/dev/null 2>&1 ; then
+    	    echo "[ Read Only File System ]" >> ${SENDTOLOG}
+    	    j=$((j + 1))
+    	    sleep 2
+    	elif ! echo "$ssidreply" | grep "resource busy (-16)"  >/dev/null 2>&1 ; then
+            echo "[ Available ]" >> ${SENDTOLOG}
+            i=1
+    	else #see if device not busy in 2 seconds
+            #echo "Unavailable ]" >> ${SENDTOLOG}
+    	    j=$((j + 1))
+    	    sleep 2
+    	fi
+    done
+    
+    for ssid in "${ssidsmac[@]}"
+    do
+        #echo -n "${DATEBOX} " >> ${SENDTOLOG}
+	#echo "DEBUG SSID: ${ssid}" >> ${SENDTOLOG}
+       	#echo "DEBUG grep: $(echo "${ssidreply}" | grep "${ssid}")" >> ${SENDTOLOG}
+        if (echo "${ssidreply}" | grep "${ssid}") >/dev/null 2>&1
+        then
+    	    #Valid SSid found, passing to script
+            echo -n "${DATEBOX} " >> ${SENDTOLOG}
+            echo "Valid SSID [ Found ]" >> ${SENDTOLOG}
+            ssidChk=$ssid
+            return 0
+          else
+    	    #No Network found, NoSSID issued"
+            ssidChk='NoSSID'
+         fi
+    done
+
+    if [ ${ssidChk} = "NoSSID" ]; then
+        echo -n "${DATEBOX} " >> ${SENDTOLOG}
+        echo "Valid SSID [ Not found ]" >> ${SENDTOLOG}
+    fi
+}
+
+NoDevice()
+{
+	#if no wifi device,ie usb wifi removed, activate wifi so when it is
+	#reconnected wifi to a router will be available
+	wpa_supplicant -B -i "$wifidev" -c /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>&1
+        LED_on WAIT
+        LED_on HTSP
+        LED_on WIFI
+
+        # Unlock script execution
+        rm -f ${lock_path}
+	exit 1
+}
+
+
+# Initialize LEDs
+LED_Setup()
+{
+    if [ ${LEDS_ENABLE} -eq 1 ]; then
+        echo -n "${DATEBOX} " >> ${SENDTOLOG}
+        ${SCRIPT_led_control} ${LEDS_AMMOUNT} INIT >> ${SENDTOLOG}
+    fi
+}
+
+# Turn on a LED. One argument with an index from LEDS_BCM must be passed
+LED_on()
+{
+    if [ ${LEDS_ENABLE} -eq 1 ]; then
+        echo -n "${DATEBOX} " >> ${SENDTOLOG}
+        ${SCRIPT_led_control} ${LEDS_AMMOUNT} ${1} ON >> ${SENDTOLOG}
+    fi
+}
+
+
+# Turn off a LED. One argument with an index from LEDS_BCM must be passed
+LED_off()
+{
+    if [ ${LEDS_ENABLE} -eq 1 ]; then
+        echo -n "${DATEBOX} " >> ${SENDTOLOG}
+        ${SCRIPT_led_control} ${LEDS_AMMOUNT} ${1} OFF >> ${SENDTOLOG}
+    fi
+}
+
+# Set "wrong password" mode and keep hotspot running without trying to
+# reconnect to a Wireless network.
+PersistentHotspot_Set()
+{
+	touch ${HOTSPOT_PERSISTENT}
+	echo "1" > ${HOTSPOT_PERSISTENT}
+}
+
+# Set "wrong password" mode and keep hotspot running without trying to
+# reconnect to a Wireless network.
+PersistentHotspot_Status()
+{
+	local htsp_status="0"
+	if [ -f ${HOTSPOT_PERSISTENT} ]; then
+		read -rn1 htsp_status < ${HOTSPOT_PERSISTENT}
+	fi
+
+	echo "${htsp_status}"
+}
+
+# Brain of the script
+
+brain()
+{
+    # Check for lock file
+    ls -A ${lock_path} > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        # Script already running
+        exit 0
+    fi
+
+    # Create a file to avoid running the script twice
+    touch ${lock_path}
+
+    # Initialize LEDs if it's the first time running
+    LED_Setup
+
+
+    # Check if Hotspot is set to persistent mode
+    local hotspot_pers=$(PersistentHotspot_Status)
+
+    # Check if already in Wi-Fi mode
+    if { wpa_cli -i "$wifidev" status | grep 'ip_address'; } >/dev/null 2>&1
+    then
+        if [ ${LOG_WIFI_CONNECTED} -eq 1 ]; then
+            echo -n "${DATEBOX} " >> ${SENDTOLOG}
+            echo "WiFi [ Connected ]" >> ${SENDTOLOG}
+        fi
+
+    # Check if Hotspot is set to persistant
+    elif [ "${hotspot_pers}" = "1" ]
+    then
+        echo "Hotspot set to persistent." >> ${SENDTOLOG}
+
+    # If it's not connected, check if the network is in range and connect
+    # Or keep going/start hotspot mode
+    else
+        echo -n "${DATEBOX} " >> ${SENDTOLOG}
+        echo "WiFi [ Not connected ]" >> ${SENDTOLOG}
+
+        # Get SSID in range
+        FindSSID
+
+        #Create Hotspot or connect to valid wifi networks
+        if [ "$ssidChk" != "NoSSID" ] 
+        then
+            # Wi-Fi
+            if systemctl status hostapd | grep "(running)" >/dev/null 2>&1
+            then 
+                # Hotspot running and SSID in range
+                KillHotspot
+                LED_on WAIT
+                wpa_supplicant -B -i "$wifidev" -c /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>&1
+                ChkWifiUp
+            else 
+                # SSID exists and no hotspot running. Connect to Wi-Fi network
+                wpa_supplicant -B -i "$wifidev" -c /etc/wpa_supplicant/wpa_supplicant.conf >/dev/null 2>&1
+                ChkWifiUp
+            fi
+
+        # Hotspot
+        else 
+            # SSID or MAC address not in range
+            if systemctl status hostapd | grep "(running)" >/dev/null 2>&1
+            then
+                # Hotspot running
+                echo -n "${DATEBOX} " >> ${SENDTOLOG}
+                echo "Hotspot [ ON ]" >> ${SENDTOLOG}
+            elif { wpa_cli status | grep "$wifidev"; } >/dev/null 2>&1
+            then
+                # Hotspot wasn't running
+                wpa_cli terminate >/dev/null 2>&1
+                ip addr flush "$wifidev"
+                ip link set dev "$wifidev" down
+                rm -r /var/run/wpa_supplicant >/dev/null 2>&1
+                LED_off WAIT
+                createAdHocNetwork
+            else 
+                # "No SSID. Activate Hotspot"
+                LED_off WAIT
+                createAdHocNetwork
+            fi
+	fi
+    fi
+
+    # Unlock script execution
+    rm -f ${lock_path}
+}
+
+# MAIN
+brain

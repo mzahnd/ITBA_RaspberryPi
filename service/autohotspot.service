@@ -1,0 +1,13 @@
+[Unit]
+Description=Automatically generates a Hotspot when a valid SSID is not in range
+After=multi-user.target network.target
+[Service]
+Type=simple
+RemainAfterExit=yes
+ExecStart=/usr/bin/autohotspot start
+ExecStop=/usr/bin/autohotspot stop
+ExecReload=/usr/bin/autohotspot stop && sleep 60 && /usr/bin/autohotspot start
+RestartSec=60
+Restart=always
+[Install]
+WantedBy=multi-user.target
