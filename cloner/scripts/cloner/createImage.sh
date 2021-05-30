@@ -108,7 +108,7 @@ function createImages()
     #sleep 2
     
     # dd image
-    dd bs=512 if=${MICROSD_PATH} of=${IMG_PATH} conv=fsync status=progress
+    dd bs=512 if="${MICROSD_PATH}" of="${IMG_PATH}" conv=fsync status=progress
     # Force sync
     sync
 
@@ -122,9 +122,9 @@ function createImages()
     # PiShrink must be run as root. So, we've to change the user
     local tmpUsername="${USERNAME}"
     USERNAME="root"
-    runScript ${SCRIPT_PATH[PISHRINK]} 2 -ad ${IMG_PATH}
+    runScript "${SCRIPT_PATH[PISHRINK]}" 2 -adp "${IMG_PATH}"
 
-    USERNAME=${tmpUsername}
+    USERNAME="${tmpUsername}"
 
     # Shrinking finished
     echo -e "${green}Shrinking finished.${rmColor}"
@@ -154,7 +154,7 @@ function _setImageName()
     local ASKUSER_CONTINUE=""
 
     # Verify that an uSD card has been set already
-    if [ ${MICROSD_PATH} = "" ] || [ ${MICROSD_SIZE} = 0 ]; then
+    if [ "${MICROSD_PATH}" = "" ] || [ ${MICROSD_SIZE} = 0 ]; then
         >&2 echo -e "${red}Error getting Micro SD Card information.${rmColor}"
         return 1
     fi

@@ -6,7 +6,7 @@ CURRENT_DIR="$(pwd)"
 SCRIPTNAME="${0##*/}"
 MYNAME="${SCRIPTNAME%.*}"
 LOGFILE="${CURRENT_DIR}/${SCRIPTNAME%.*}.log"
-REQUIRED_TOOLS="parted losetup tune2fs md5sum e2fsck resize2fs"
+REQUIRED_TOOLS="parted losetup tune2fs md5sum e2fsck resize2fs truncate"
 ZIPTOOLS=("gzip xz")
 declare -A ZIP_PARALLEL_TOOL=( [gzip]="pigz" [xz]="xz" ) # parallel zip tool to use in parallel mode
 declare -A ZIP_PARALLEL_OPTIONS=( [gzip]="-f9" [xz]="-T0" ) # options for zip tools in parallel mode
@@ -274,8 +274,38 @@ fi
 if [[ $prep == true ]]; then
   info "Syspreping: Removing logs, apt archives, dhcp leases and ssh hostkeys"
   mountdir=$(mktemp -d)
+  bash_history_filename='.bash_history'
   mount "$loopback" "$mountdir"
-  rm -rf "$mountdir/var/cache/apt/archives/*" "$mountdir/var/lib/dhcpcd5/*" "$mountdir/var/log/*" "$mountdir/var/tmp/*" "$mountdir/tmp/*" "$mountdir/etc/ssh/*_host_*"
+
+  rm -rf "$mountdir/var/cache/apt/archives/*" "$mountdir/var/lib/dhcpcd5/*" "$mountdir/var/tmp/*" "$mountdir/tmp/*" "$mountdir/etc/ssh/*_host_*"
+  
+  # Logs
+  # Remove compressed/rotated logs and erease content of normal log files
+  for filename in $(find "${mountdir}/var/log/" -type f); do
+    ext="${filename##*.}"
+    if [[ "${ext}" =~ ^-?[0-9]+$ ]] || \
+        [[ "${ext}" =~ ^tar|xz|gz|lz|lz4|zip|7z$ ]]; then
+      rm -rf "${filename}"
+    else
+      truncate --size=0 "${filename}"
+    fi
+  done
+
+  # wpa_supplicant credentials
+  truncate --size=0 "$mountdir/etc/wpa_supplicant/wpa_supplicant.conf"
+
+  # bash_history for root
+  if [ -f "${mountdir}/root/${bash_history_filename}" ]; then
+      truncate --size=0 "${mountdir}/root/${bash_history_filename}"
+  fi
+
+  # bash_history for non-root users 
+  for dir in $(find "${mountdir}/home" -maxdepth 1 -path '*' -type d); do
+    if [ -f "${dir}/${bash_history_filename}" ]; then
+      truncate --size=0 "${dir}/${bash_history_filename}"
+    fi
+  done
+
   umount "$mountdir"
 fi
 
