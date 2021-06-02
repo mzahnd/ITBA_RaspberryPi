@@ -186,7 +186,7 @@ function menu()
                 echo -n "Did you know that Dolly (5 July 1996 – 14 February "
                 echo -n "2003) was a female domestic sheep, and the first "
                 echo -n "mammal cloned from an adult somatic cell, using the "
-                echo " process of nuclear transfer?"
+                echo "process of nuclear transfer."
                 echo "Source: Wikipedia"
 
                 returnValue=-5
