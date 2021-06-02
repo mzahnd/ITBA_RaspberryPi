@@ -22,7 +22,7 @@
 
 # Enable / Disable autohotspot status LEDS.
 
-AUTOHTSP_PATH='/usr/local/bin/autohotspot_switch'
+AUTOHTSP_PATH='/usr/local/bin/autohotspot.d/autohotspot_switch'
 
 # LED Pins
 LEDS=("23" "24")
