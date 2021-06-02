@@ -1,0 +1,96 @@
+#!/bin/bash
+#
+# Copyright 2021 Martin E. Zahnd <mzahnd@itba.edu.ar>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to
+# deal in the Software without restriction, including without limitation the
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+# sell copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+# Update image version
+
+color_cyan="\e[36m"
+color_rm="\e[0m"
+
+VERSION_FILE="/etc/version-itba-img"
+VERSION=$(< "${VERSION_FILE}")
+
+function update_files() {
+    # SSH Banner
+    SSH_BANNER_PATH="/etc/ssh/sshd_banner"
+    sudo sed -r --in-place \
+        "s/^Version: .*$/Version: ${VERSION}/g" "${SSH_BANNER_PATH}"
+}
+
+function write_version() {
+    sudo bash -c "echo ${VERSION} > ${VERSION_FILE}"
+}
+
+function set_version() {
+    local nv_set=-1
+    local new_ver=""
+
+    while [ ${nv_set} -eq -1 ]; do
+        echo -n "Please enter the new version: "
+        read new_ver
+    
+        echo "New version will be set to: ${new_ver}"
+
+        local correct=-1
+        while [ ${correct} -eq -1 ]; do
+            echo -n "Is this correct? [y/n] "
+            read             
+
+            if [ "${REPLY,,}" = "y" ] || [ "${REPLY,,}" = "yes" ]; then
+                VERSION="${new_ver}"
+                write_version
+                update_files
+
+                correct=1
+                nv_set=1
+            elif [ "${REPLY,,}" = "n" ] || [ "${REPLY,,}" = "no" ]; then
+                correct=0 
+            fi
+        done
+    done
+
+    return 0
+}
+
+echo -e "Current version is: ${color_cyan}${VERSION}${color_rm}"
+
+ASK_USER=-1
+while [ ${ASK_USER} -eq -1 ]
+do
+    echo "Would you like to?"
+    echo "  1.- Modify"
+    echo "  2.- Update files"
+    echo "  0.- Exit"
+
+    read 
+
+    if [ "${REPLY}" = "1" ]; then
+        set_version
+        ASK_USER=$?
+    elif [ "${REPLY}" = "2" ]; then
+        update_files
+        ASK_USER=$?
+    elif [ "${REPLY}" = "0" ]; then
+        ASK_USER=0
+    fi
+done
+
+exit ${ASK_USER}
